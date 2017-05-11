@@ -8,7 +8,7 @@ import kafka.producer.ProducerConfig;
 
 public final class TwitterKafkaProducer {
     public static void main(String[] args) throws TwitterException {
-        
+
         //Define properties for how the Producer finds the cluster, serializes 
         //the messages and if appropriate directs the message to a specific 
         //partition.
@@ -22,16 +22,15 @@ public final class TwitterKafkaProducer {
 
         //Define producer object, its a java generic and takes 2 params; first
         //type of partition key, second type of the message
-        final Producer<String, String> producer = new Producer<String, String>(config);
+        final Producer<String, String> producer = new Producer<>(config);
         
         StatusListener listener = new StatusListener() {
             @Override
             public void onStatus(Status status) {
-                System.out.println(status.toString());
                 String msg = "@" + status.getUser().getScreenName() + " - " + status.getText();
-                KeyedMessage<String, String> data = new KeyedMessage<String, String>("test", msg);
-//                System.out.println(msg);
+                KeyedMessage<String, String> data = new KeyedMessage<String, String>("tw", msg);
                 producer.send(data);
+                System.out.println(msg);
             }
             @Override
             public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
@@ -59,9 +58,9 @@ public final class TwitterKafkaProducer {
         ArrayList<Long> follow = new ArrayList<Long>();
         ArrayList<String> track = new ArrayList<String>();
         long[] followArray = new long[follow.size()];
-        track.add("BigData");
+        track.add("Messi");
         String[] trackArray = track.toArray(new String[track.size()]);
-        twitterStream.filter(new FilterQuery(0, followArray, trackArray));
+        twitterStream.filter(new FilterQuery(trackArray));
     
     }
 }

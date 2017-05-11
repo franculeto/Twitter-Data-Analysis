@@ -18,12 +18,10 @@
 package com.twitterfeed.consumer;
 
 import com.google.common.collect.Lists;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicReference;
+
+import java.util.*;
 import java.util.regex.Pattern;
+
 import kafka.serializer.StringDecoder;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -48,14 +46,18 @@ public final class KafkaSparkConsumer {
 
   public static void main(String[] args) {
     String brokers = "localhost:9092";
-    String topics = "test";
+    String topics = "tw";
 
     // Create context with 2 second batch interval
-    SparkConf sparkConf = new SparkConf().setAppName("TwitterAnalysis");
-    JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, Durations.seconds(2));
+    SparkConf sparkConf = new SparkConf().set(
+            "spark.streaming.receiver.writeAheadLog.enable", "false").setMaster("local[*]")
+            .setAppName("twitterSparkKafka")
+            .set("spark.driver.memory", "2g")
+            .set("spark.executor.memory", "2g");
+    JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, Durations.seconds(10));
 
-    HashSet<String> topicsSet = new HashSet<String>(Arrays.asList(topics.split(",")));
-    HashMap<String, String> kafkaParams = new HashMap<String, String>();
+    HashSet<String> topicsSet = new HashSet<>(Arrays.asList(topics.split(",")));
+    HashMap<String, String> kafkaParams = new HashMap<>();
     kafkaParams.put("metadata.broker.list", brokers);
 
     // Create direct kafka stream with brokers and topics
@@ -70,34 +72,27 @@ public final class KafkaSparkConsumer {
     );
 
     // Get the lines, split them into words, count the words and print
-    JavaDStream<String> lines = messages.map(new Function<Tuple2<String, String>, String>() {
-      @Override
-      public String call(Tuple2<String, String> tuple2) {
-        return tuple2._2();
-      }
-    });
-    JavaDStream<String> words = lines.flatMap(new FlatMapFunction<String, String>() {
-      @Override
-      public Iterable<String> call(String x) {
-        return Lists.newArrayList(SPACE.split(x));
-      }
-    });
+    JavaDStream<String> lines = messages.map((Function<Tuple2<String, String>, String>) tuple2 -> tuple2._2());
+    JavaDStream<String> words = lines.flatMap((FlatMapFunction<String, String>) x -> Lists.newArrayList(SPACE.split(x)));
+
+    words.persist();
 
     JavaPairDStream<String, Integer> wordCounts = words.mapToPair(
-      new PairFunction<String, String, Integer>() {
-        @Override
-        public Tuple2<String, Integer> call(String s) {
-          return new Tuple2<String, Integer>(s, 1);
-        }
-      }).reduceByKey(
-        new Function2<Integer, Integer, Integer>() {
-        @Override
-        public Integer call(Integer i1, Integer i2) {
-          return i1 + i2;
-        }
-      });
-    
-    wordCounts.print();
+            (PairFunction<String, String, Integer>) s -> new Tuple2<>(s, 1)).reduceByKey(
+            (Function2<Integer, Integer, Integer>) (i1, i2) -> i1 + i2);
+
+    wordCounts = wordCounts.filter((Function<Tuple2<String, Integer>, Boolean>) v1 ->  CheckCharacter.isCharacter(v1._1) == false );
+
+    //swap counts to be able to sort it
+    JavaPairDStream<Integer, String> swappedCounts = wordCounts.mapToPair
+            ((PairFunction<Tuple2<String, Integer>, Integer, String>) in -> in.swap() );
+
+    //sort based on count of earch query string.
+    JavaPairDStream<Integer, String> sortedCounts = swappedCounts
+            .transformToPair((Function<JavaPairRDD<Integer, String>, JavaPairRDD<Integer, String>>) in -> in.sortByKey(false));
+
+    sortedCounts.print(20);
+
 
     // Start the computation
     jssc.start();
