@@ -55,9 +55,7 @@ public final class TwitterKafkaProducer {
         };
         TwitterStream twitterStream = new TwitterStreamFactory().getInstance();
         twitterStream.addListener(listener);
-        ArrayList<Long> follow = new ArrayList<Long>();
         ArrayList<String> track = new ArrayList<String>();
-        long[] followArray = new long[follow.size()];
         track.add("Messi");
         String[] trackArray = track.toArray(new String[track.size()]);
         twitterStream.filter(new FilterQuery(trackArray));

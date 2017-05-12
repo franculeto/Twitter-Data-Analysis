@@ -151,5 +151,6 @@
     <orderEntry type="library" name="Maven: org.apache.kafka:kafka-clients:0.8.2.2" level="project" />
     <orderEntry type="library" name="Maven: org.apache.zookeeper:zookeeper:3.4.6" level="project" />
     <orderEntry type="library" name="Maven: jline:jline:0.9.94" level="project" />
+    <orderEntry type="library" name="Maven: org.mongodb:mongo-java-driver:2.13.3" level="project" />
   </component>
 </module>
